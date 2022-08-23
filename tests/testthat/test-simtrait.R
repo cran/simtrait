@@ -120,6 +120,40 @@ test_that("cov_trait works", {
     expect_true( all(V <= 2) )
     # V should be symmetric (since kinship is)
     expect_equal( V, t(V) )
+
+    # repeat with group effects
+    # labels for group effects
+    labs1 <- sample( c('a', 'b', 'c'), n, replace = TRUE )
+    labs2 <- sample( c('a', 'z'), n, replace = TRUE )
+    labs <- cbind( labs1, labs2 )
+    # reduce heritability to have not tiny group variances
+    herit <- 0.3
+    labs_sigma_sq1 <- 0.3
+    labs_sigma_sq2 <- 0.2
+    labs_sigma_sq <- c( labs_sigma_sq1, labs_sigma_sq2 )
+    
+    # test single level version
+    expect_silent(
+        V <- cov_trait( kinship = kinship, herit = herit, labs = labs1, labs_sigma_sq = labs_sigma_sq1 )
+    )
+    # all values should be positive
+    expect_true( all(V >= 0) )
+    # and bounded above by 2 (due to kinship scaling)
+    expect_true( all(V <= 2) )
+    # V should be symmetric (since kinship is)
+    expect_equal( V, t(V) )
+    
+    # test multi-level version
+    expect_silent(
+        V <- cov_trait( kinship = kinship, herit = herit, labs = labs, labs_sigma_sq = labs_sigma_sq )
+    )
+    # all values should be positive
+    expect_true( all(V >= 0) )
+    # and bounded above by 2 (due to kinship scaling)
+    expect_true( all(V <= 2) )
+    # V should be symmetric (since kinship is)
+    expect_equal( V, t(V) )
+    
 })
 
 test_that( "herit_loci works", {
@@ -356,7 +390,73 @@ test_that("sim_trait works", {
         herit_loci( p_anc[ causal_indexes ], causal_coeffs ),
         rep.int( herit / m_causal, m_causal ),
     )
+
+    # labels for group effects
+    labs1 <- sample( c('a', 'b', 'c'), n, replace = TRUE )
+    labs2 <- sample( c('a', 'z'), n, replace = TRUE )
+    labs <- cbind( labs1, labs2 )
+    # reduce heritability to have not tiny group variances
+    herit <- 0.3
+    labs_sigma_sq1 <- 0.3
+    labs_sigma_sq2 <- 0.2
+    labs_sigma_sq <- c( labs_sigma_sq1, labs_sigma_sq2 )
     
+    # version with group effects
+    # for simplicity use p_anc version
+    # pass labs without their variances
+    expect_error( sim_trait( X = X, m_causal = m_causal, herit = herit, p_anc = p_anc, labs = labs1 ) )
+    # variances of wrong length
+    expect_error( sim_trait( X = X, m_causal = m_causal, herit = herit, p_anc = p_anc, labs = labs1, labs_sigma_sq = labs_sigma_sq ) )
+    # excessive variance value ( herit + labs_sigma_sq > 1 )
+    expect_error( sim_trait( X = X, m_causal = m_causal, herit = herit, p_anc = p_anc, labs = labs1, labs_sigma_sq = 0.8 ) )
+
+    # a complete run, one level
+    expect_silent(
+        obj <- sim_trait( X = X, m_causal = m_causal, herit = herit, p_anc = p_anc, labs = labs1, labs_sigma_sq = labs_sigma_sq1 )
+    )
+    trait <- obj$trait # trait vector
+    causal_indexes <- obj$causal_indexes # causal locus indeces
+    causal_coeffs <- obj$causal_coeffs # locus effect size vector
+    group_effects <- obj$group_effects # new!
+    # test trait
+    expect_equal( length(trait), n) # length as expected
+    # test causal locus indeces
+    expect_equal( length(causal_indexes), m_causal ) # length as expected
+    expect_true( all(causal_indexes <= m) ) # range as expected
+    expect_true( all(causal_indexes >= 1) ) # range as expected
+    # test effect sizes
+    expect_equal( length(causal_coeffs), m_causal) # length as expected
+    # verify heritability, exactly given when p_anc is known
+    expect_equal(
+        herit,
+        sum( herit_loci( p_anc[ causal_indexes ], causal_coeffs ) )
+    )
+    # test separate group effects
+    expect_equal( length( group_effects ), n )
+    
+    # a complete run, two levels
+    expect_silent(
+        obj <- sim_trait( X = X, m_causal = m_causal, herit = herit, p_anc = p_anc, labs = labs, labs_sigma_sq = labs_sigma_sq )
+    )
+    trait <- obj$trait # trait vector
+    causal_indexes <- obj$causal_indexes # causal locus indeces
+    causal_coeffs <- obj$causal_coeffs # locus effect size vector
+    group_effects <- obj$group_effects # new!
+    # test trait
+    expect_equal( length(trait), n) # length as expected
+    # test causal locus indeces
+    expect_equal( length(causal_indexes), m_causal ) # length as expected
+    expect_true( all(causal_indexes <= m) ) # range as expected
+    expect_true( all(causal_indexes >= 1) ) # range as expected
+    # test effect sizes
+    expect_equal( length(causal_coeffs), m_causal) # length as expected
+    # verify heritability, exactly given when p_anc is known
+    expect_equal(
+        herit,
+        sum( herit_loci( p_anc[ causal_indexes ], causal_coeffs ) )
+    )
+    # test separate group effects
+    expect_equal( length( group_effects ), n )
 })
 
 test_that( "sqrt_matrix works", {
@@ -410,6 +510,46 @@ test_that("sim_trait_mvn works", {
     expect_true( is.numeric( traits ) )
     expect_equal( nrow( traits ), rep )
     expect_equal( ncol( traits ), n )
+
+    # labels for group effects
+    labs1 <- sample( c('a', 'b', 'c'), n, replace = TRUE )
+    labs2 <- sample( c('a', 'z'), n, replace = TRUE )
+    labs <- cbind( labs1, labs2 )
+    # reduce heritability to have not tiny group variances
+    herit <- 0.3
+    labs_sigma_sq1 <- 0.3
+    labs_sigma_sq2 <- 0.2
+    labs_sigma_sq <- c( labs_sigma_sq1, labs_sigma_sq2 )
+
+    # test one-level version
+    expect_silent(
+        traits <- sim_trait_mvn(
+            rep = rep,
+            kinship = kinship,
+            herit = herit,
+            labs = labs1,
+            labs_sigma_sq = labs_sigma_sq1
+        )
+    )
+    expect_true( is.matrix( traits ) )
+    expect_true( is.numeric( traits ) )
+    expect_equal( nrow( traits ), rep )
+    expect_equal( ncol( traits ), n )
+
+    # test two-level version
+    expect_silent(
+        traits <- sim_trait_mvn(
+            rep = rep,
+            kinship = kinship,
+            herit = herit,
+            labs = labs,
+            labs_sigma_sq = labs_sigma_sq
+        )
+    )
+    expect_true( is.matrix( traits ) )
+    expect_true( is.numeric( traits ) )
+    expect_equal( nrow( traits ), rep )
+    expect_equal( ncol( traits ), n )
 })
 
 test_that( "rmsd works", {
@@ -441,7 +581,7 @@ test_that( "rmsd works", {
     expect_equal( rmsd( x, y ), rmsd( y, x ) ) # transitivity
 })
 
-test_that( "pval_srmsd works", {
+test_that( "pval_srmsd, pval_type_1_err, pval_infl work", {
     # random data to test on
     n <- 10
     n_null <- 8 # must be strictly smaller than n for things to work
@@ -452,6 +592,8 @@ test_that( "pval_srmsd works", {
     pvals[ sample.int( n, n * p_miss ) ] <- NA
     # pick a few random ones to be causal (to be removed inside)
     causal_indexes <- sample.int( n, n - n_null )
+    
+    ### pval_srmsd
     
     # trigger failures on purpose
     # (missing arguments)
@@ -495,16 +637,49 @@ test_that( "pval_srmsd works", {
     expect_silent( srmsd <- pval_srmsd( pvals, causal_indexes = NULL ) )
     expect_equal( length( srmsd ), 1 )
     expect_true( !is.na( srmsd ) )
-})
 
-test_that( "pval_infl works", {
-    # random data to test on
-    n <- 10
-    p_miss <- 0.2 # add missingness too
-    # all p-values are uniform
-    pvals <- runif( n )
-    # select a random few to be NA
-    pvals[ sample.int( n, n * p_miss ) ] <- NA
+    ### pval_type_1_err
+    
+    # trigger failures on purpose
+    # (missing arguments)
+    expect_error( pval_type_1_err( ) )
+    expect_error( pval_type_1_err( pvals ) )
+    expect_error( pval_type_1_err( causal_indexes = causal_indexes ) )
+    # p-values out of range cause errors
+    expect_error( pval_type_1_err( c(pvals, -1), causal_indexes ) )
+    expect_error( pval_type_1_err( c(pvals, 10), causal_indexes ) )
+    # empty causal_indexes trigger a specific error
+    expect_error( pval_type_1_err( pvals, numeric(0) ) ) # NOTE: c() is NULL!
+    # and all loci being causal (no nulls) also triggers errors
+    expect_error( pval_type_1_err( pvals, 1:length(pvals) ) )
+
+    # now the successful run
+    expect_silent( type_1_err <- pval_type_1_err( pvals, causal_indexes ) )
+    expect_equal( length( type_1_err ), 1 )
+    expect_true( !is.na( type_1_err ) )
+    expect_true( type_1_err >= 0 )
+    expect_true( type_1_err <= 1 )
+    
+    # work with NULL version
+    expect_silent( type_1_err <- pval_type_1_err( pvals, causal_indexes = NULL ) )
+    expect_equal( length( type_1_err ), 1 )
+    expect_true( !is.na( type_1_err ) )
+    expect_true( type_1_err >= 0 )
+    expect_true( type_1_err <= 1 )
+
+    # a vector of alphas!
+    alpha <- c(1e-1, 1e-2, 1e-3)
+    expect_silent( type_1_err <- pval_type_1_err( pvals, causal_indexes, alpha = alpha ) )
+    expect_equal( length( type_1_err ), length( alpha ) )
+    expect_true( !anyNA( type_1_err ) )
+    expect_true( all( type_1_err >= 0 ) )
+    expect_true( all( type_1_err <= 1 ) )
+    # gives same answer
+    pvals_null_cum <- ecdf( pvals[ -causal_indexes ] )
+    type_1_err_ecdf <- pvals_null_cum( alpha )
+    expect_equal( type_1_err, type_1_err_ecdf )
+    
+    ### pval_infl
     
     # trigger failures on purpose
     # (missing arguments)
@@ -527,7 +702,7 @@ test_that( "pval_infl works", {
     expect_true( pval_infl( 0.6 ) < 1 )
 })
 
-test_that( "pval_aucpr works", {
+test_that( "pval_aucpr, pval_power_calib work", {
     # random data to test on
     n <- 10
     n_null <- 5 # must be strictly smaller than n for things to work
@@ -538,6 +713,8 @@ test_that( "pval_aucpr works", {
     # pick one of each class to be NA
     pvals[ causal_indexes ][1] <- NA
     pvals[ -causal_indexes ][1] <- NA
+
+    ### pval_aucpr
     
     # trigger failures on purpose
     # (missing arguments)
@@ -567,4 +744,34 @@ test_that( "pval_aucpr works", {
     expect_true( !is.na(auc) )
     expect_true( auc >= 0 )
     expect_true( auc <= 1 )
+
+    ### pval_power_calib
+
+    # trigger failures on purpose
+    # (missing arguments)
+    expect_error( pval_power_calib( ) )
+    expect_error( pval_power_calib( pvals ) )
+    expect_error( pval_power_calib( causal_indexes = causal_indexes ) )
+    # p-values out of range cause errors
+    expect_error( pval_power_calib( c(pvals, -1), causal_indexes ) )
+    expect_error( pval_power_calib( c(pvals, 10), causal_indexes ) )
+    # empty causal_indexes trigger a specific error
+    expect_error( pval_power_calib( pvals, c() ) )
+    # and all loci being causal (no nulls) also triggers errors
+    expect_error( pval_power_calib( pvals, 1:length(pvals) ) )
+
+    # now a successful case
+    expect_silent( power <- pval_power_calib( pvals, causal_indexes ) )
+    expect_equal( length(power), 1 )
+    expect_true( !is.na(power) )
+    expect_true( power >= 0 )
+    expect_true( power <= 1 )
+
+    # a vector of alphas!
+    alpha <- c(1e-1, 1e-2, 1e-3)
+    expect_silent( power <- pval_power_calib( pvals, causal_indexes, alpha ) )
+    expect_equal( length(power), length( alpha ) )
+    expect_true( !anyNA(power) )
+    expect_true( all( power >= 0 ) )
+    expect_true( all( power <= 1 ) )
 })

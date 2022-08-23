@@ -125,9 +125,10 @@ par( par_orig ) # reset `par`
 
 ## ---- fig.width = 6, fig.height = 2.8, fig.align = 'center'-------------------
 plot_popkin(
-    inbr_diag(list(V, V_rc_freq)),
+    list(V, V_rc_freq),
     titles = c('Theoretical', 'RC freq'),
     leg_title = 'Covariance',
+    panel_letters_adj = 0,
     # set margin for title (top is non-zero)
     mar = c(0, 2)
 )
@@ -170,9 +171,10 @@ par( par_orig ) # reset `par`
 
 ## ---- fig.width = 7, fig.height = 2.35, fig.align = 'center'------------------
 plot_popkin(
-    inbr_diag(list(V, V_rc_freq, V_rc_kin)),
+    list(V, V_rc_freq, V_rc_kin),
     titles = c('Theoretical', 'RC freq', 'RC kinship'),
     leg_title = 'Covariance',
+    panel_letters_adj = 0,
     mar = c(0, 2)
 )
 
@@ -209,9 +211,10 @@ par( par_orig ) # reset `par`
 
 ## ---- fig.width = 7, fig.height = 2, fig.align = 'center'---------------------
 plot_popkin(
-    inbr_diag(list(V, V_rc_freq, V_rc_kin, V_mvn)),
+    list(V, V_rc_freq, V_rc_kin, V_mvn),
     titles = c('Theoretical', 'RC freq', 'RC kinship', 'MVN'),
     leg_title = 'Covariance',
+    panel_letters_adj = 0,
     mar = c(0, 2),
     leg_width = 0.4
 )
@@ -270,11 +273,154 @@ par( par_orig ) # reset `par`
 
 ## ---- fig.width = 7, fig.height = 4, fig.align = 'center'---------------------
 plot_popkin(
-    inbr_diag( list( V, V_rc_freq, V_rc_kin, V_mvn, V_fes_freq, V_fes_kin ) ),
+    list( V, V_rc_freq, V_rc_kin, V_mvn, V_fes_freq, V_fes_kin ),
     titles = c('Theoretical', 'RC freq', 'RC kinship', 'MVN', 'FES freq', 'FES kinship'),
     leg_title = 'Covariance',
+    panel_letters_adj = 0,
     mar = c(0, 2),
     leg_width = 0.4,
     layout_rows = 2
 )
+
+## ---- fig.width = 7, fig.height = 5, fig.align = 'center'---------------------
+par_orig <- par(mgp = c(2, 0.5, 0))
+# create multipanel figure
+par( mfrow = c(2, 3) )
+# reduce margins from default
+par(mar = c(3.5, 3, 0, 0) + 0.2)
+plot( V, V_rc_freq, xlab = 'Theoretical Cov', ylab = 'RC freq Cov' )
+abline( 0, 1, lty = 2, col = 'gray' )
+plot( V, V_rc_kin, xlab = 'Theoretical Cov', ylab = 'RC kinship Cov' )
+abline( 0, 1, lty = 2, col = 'gray' )
+plot( V, V_mvn, xlab = 'Theoretical Cov', ylab = 'MVN Cov' )
+abline( 0, 1, lty = 2, col = 'gray' )
+plot( V, V_fes_freq, xlab = 'Theoretical Cov', ylab = 'FES freq Cov' )
+abline( 0, 1, lty = 2, col = 'gray' )
+plot( V, V_fes_kin, xlab = 'Theoretical Cov', ylab = 'FES kinship Cov' )
+abline( 0, 1, lty = 2, col = 'gray' )
+barplot(
+    c(
+        rmsd( V, V_rc_freq ),
+        rmsd( V, V_rc_kin ),
+        rmsd( V, V_mvn ),
+        rmsd( V, V_fes_freq ),
+        rmsd( V, V_fes_kin )
+    ),
+    names.arg = c('RC freq', 'RC kin', 'MVN', 'FES freq', 'FES kin'),
+    ylab = 'RMSD from Theoretical',
+    las = 3
+)
+par( par_orig ) # reset `par`
+
+## -----------------------------------------------------------------------------
+# first level, first half is all one group called "a"
+# second half is another group called "b"
+n_half <- round( n_ind / 2 )
+labs1 <- c(
+    rep.int( 'a', n_half ),
+    rep.int( 'b', n_ind - n_half )
+)
+# second level will be in thirds instead
+# each level is independent, so group names can repeat across levels
+n_third <- round( n_ind / 3 )
+labs2 <- c(
+    rep.int( 'a', n_third ),
+    rep.int( 'b', n_third ),
+    rep.int( 'c', n_ind - 2 * n_third )
+)
+# combine!
+labs <- cbind( labs1, labs2 )
+# set heritability and variance effects for these levels
+# reduce heritability to allow for large group variances
+herit <- 0.3
+labs_sigma_sq <- c( 0.3, 0.2 )
+
+## -----------------------------------------------------------------------------
+V <- cov_trait( kinship = kinship, herit = herit, sigma_sq = sigma_sq,
+               labs = labs, labs_sigma_sq = labs_sigma_sq )
+# store in this matrix, initialize with zeroes
+Y_rc_freq  <- matrix(data = 0, nrow = n_traits, ncol = n_ind)
+Y_rc_kin   <- matrix(data = 0, nrow = n_traits, ncol = n_ind)
+Y_fes_freq <- matrix(data = 0, nrow = n_traits, ncol = n_ind)
+Y_fes_kin  <- matrix(data = 0, nrow = n_traits, ncol = n_ind)
+# start loop
+for (i in 1 : n_traits) {
+    Y_rc_freq[i,]  <- sim_trait( X=X, m_causal=m_causal, herit=herit, mu=mu, sigma_sq=sigma_sq, 
+        labs=labs, labs_sigma_sq=labs_sigma_sq, p_anc=p_anc )$trait
+    Y_rc_kin[i,]   <- sim_trait( X=X, m_causal=m_causal, herit=herit, mu=mu, sigma_sq=sigma_sq, 
+        labs=labs, labs_sigma_sq=labs_sigma_sq, kinship=kinship )$trait
+    Y_fes_freq[i,] <- sim_trait( X=X, m_causal=m_causal, herit=herit, mu=mu, sigma_sq=sigma_sq, 
+        labs=labs, labs_sigma_sq=labs_sigma_sq, p_anc=p_anc, fes=TRUE )$trait
+    Y_fes_kin[i,]  <- sim_trait( X=X, m_causal=m_causal, herit=herit, mu=mu, sigma_sq=sigma_sq, 
+        labs=labs, labs_sigma_sq=labs_sigma_sq, kinship=kinship, fes=TRUE )$trait
+}
+Y_mvn <- sim_trait_mvn( rep = n_traits, kinship = kinship, herit = herit,
+    mu = mu, sigma_sq = sigma_sq, labs = labs, labs_sigma_sq = labs_sigma_sq )
+# estimate sample covariance
+V_rc_freq  <- cov(Y_rc_freq)
+V_rc_kin   <- cov(Y_rc_kin)
+V_fes_freq <- cov(Y_fes_freq)
+V_fes_kin  <- cov(Y_fes_kin)
+V_mvn      <- cov(Y_mvn)
+
+## ---- fig.width = 6, fig.align = 'center'-------------------------------------
+par_orig <- par(mgp = c(2, 0.5, 0))
+# reduce margins from default
+par(mar = c(3.5, 3, 0, 0) + 0.2)
+# visualize distribution
+boxplot(
+    list(
+        "RC freq" = rowMeans(Y_rc_freq),
+        "RC kinship" = rowMeans(Y_rc_kin),
+        "MVN" = rowMeans(Y_mvn),
+        "FES freq" = rowMeans(Y_fes_freq),
+        "FES kinship" = rowMeans(Y_fes_kin)
+    ),
+    xlab = "Trait Type",
+    ylab = 'Sample Mean'
+)
+# red line marks expected mean
+abline(h = mu, col = 'red')
+par( par_orig ) # reset `par`
+
+## ---- fig.width = 7, fig.height = 4, fig.align = 'center'---------------------
+plot_popkin(
+    list( V, V_rc_freq, V_rc_kin, V_mvn, V_fes_freq, V_fes_kin ),
+    titles = c('Theoretical', 'RC freq', 'RC kinship', 'MVN', 'FES freq', 'FES kinship'),
+    leg_title = 'Covariance',
+    panel_letters_adj = 0,
+    mar = c(0, 2),
+    leg_width = 0.4,
+    layout_rows = 2
+)
+
+## ---- fig.width = 7, fig.height = 5, fig.align = 'center'---------------------
+par_orig <- par(mgp = c(2, 0.5, 0))
+# create multipanel figure
+par( mfrow = c(2, 3) )
+# reduce margins from default
+par(mar = c(3.5, 3, 0, 0) + 0.2)
+plot( V, V_rc_freq, xlab = 'Theoretical Cov', ylab = 'RC freq Cov' )
+abline( 0, 1, lty = 2, col = 'gray' )
+plot( V, V_rc_kin, xlab = 'Theoretical Cov', ylab = 'RC kinship Cov' )
+abline( 0, 1, lty = 2, col = 'gray' )
+plot( V, V_mvn, xlab = 'Theoretical Cov', ylab = 'MVN Cov' )
+abline( 0, 1, lty = 2, col = 'gray' )
+plot( V, V_fes_freq, xlab = 'Theoretical Cov', ylab = 'FES freq Cov' )
+abline( 0, 1, lty = 2, col = 'gray' )
+plot( V, V_fes_kin, xlab = 'Theoretical Cov', ylab = 'FES kinship Cov' )
+abline( 0, 1, lty = 2, col = 'gray' )
+barplot(
+    c(
+        rmsd( V, V_rc_freq ),
+        rmsd( V, V_rc_kin ),
+        rmsd( V, V_mvn ),
+        rmsd( V, V_fes_freq ),
+        rmsd( V, V_fes_kin )
+    ),
+    names.arg = c('RC freq', 'RC kin', 'MVN', 'FES freq', 'FES kin'),
+    ylab = 'RMSD from Theoretical',
+    las = 3
+)
+par( par_orig ) # reset `par`
 

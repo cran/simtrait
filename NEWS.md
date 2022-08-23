@@ -130,3 +130,36 @@
 - Added bioRxiv paper reference to description.
 - Reset `par()` in vignette examples.
 
+# simtrait 1.0.21.9000 (2022-08-15)
+
+- Function `sim_trait` fixed an important bug resulting in misspecified heritability!
+  - The previous buggy version:
+    - Non-genetic variance was misspecified, accidentally passing to `rnorm` the desired variance `(1 - herit) * sigma_sq` where the standard deviation (its square root) was required!
+    - The resulting effective heritability was given by the requested `herit` value by `herit / ( herit + (1-herit)^2 * sigma_sq )`.  If `sigma_sq = 1` (default), the effective heritability was always larger than desired!
+- Vignette updates
+  - Added a more detailed comparison between theoretical and empirical covariance matrices from simulations, to help assess the effect of the previous `sim_trait` bug and its fix.
+  - Removed `inbr_diag` in `plot_popkin` calls, which in this case made diagonal values larger (as they were larger than 1), among other minor adjustments.
+- Updated reference DOI to newest preprint
+- README now includes CRAN installation instructions alongside GitHub version.
+
+# simtrait 1.0.22.9000 (2022-08-17)
+
+- Functions `sim_trait`, `sim_trait_mvn`, and `cov_trait`: added parameters `labs` and `labs_sigma_sq` to simulate/model non-genetic group effects.
+  - Updated vignette to illustrate this new feature.
+  - Function `sim_trait` also now returns `group_effects` as one of the named elements of the return list.
+- Function `sim_trait` parameters `p_anc` and `kinship` now have default `NULL` values (used to not have default values), to facilitate scripting in cases that can be either simulated or real genotypes.
+
+# simtrait 1.0.23.9000 (2022-08-18)
+
+- Added functions `pval_type_1_err` and `pval_power_calib` for calculating type I error rates and calibrated power, respectively.
+
+# simtrait 1.0.24.9000 (2022-08-19)
+
+- Functions `pval_type_1_err` and `pval_power_calib`:
+  - Now option `alpha` can be a vector, and return value is a vector of estimates, one for each `alpha`.
+  - Switched documentation wording from "calculate" to "estimate", and acknowledges that estimates are accurate only when the number of p-values is much larger than `1/alpha`.
+
+# simtrait 1.1.0 (2022-08-22)
+
+- Corrected spelling
+- Updated CRAN comments
