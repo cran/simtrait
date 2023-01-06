@@ -94,6 +94,61 @@ test_that("select_loci works", {
     expect_true( all( maf[ indexes ] <= 1 - maf_cut ) ) # test top of range
 })
 
+test_that("check_herit_labs works", {
+    # test trivial case without labels, just herit
+    herit <- 0.8
+    labs <- NULL
+    labs_sigma_sq <- NULL
+    n_ind <- 1 # not used in this case
+
+    # first errors on purpose, all of which have to do with bad heritabilities
+    expect_error( check_herit_labs( -0.1, labs, labs_sigma_sq, n_ind ) )
+    expect_error( check_herit_labs( 1.1, labs, labs_sigma_sq, n_ind ) )
+
+    # a successful run
+    expect_silent(
+        obj <- check_herit_labs( herit, labs, labs_sigma_sq, n_ind )
+    )
+    expect_true( is.list( obj ) )
+    expect_equal( names( obj ), c( 'labs', 'sigma_sq_residual' ) )
+    expect_true( is.null( obj$labs ) ) # in this case only
+    expect_equal( obj$sigma_sq_residual, 1 - herit ) # in this simple case
+
+    # test non-trivial case where there are labs
+    # here one layer only
+    labs <- c( rep.int( 'a', 5L ), rep.int( 'b', 5L ) )
+    labs_sigma_sq <- 0.3
+    n_ind <- length( labs )
+    # reduce heritability to accomodate effects
+    herit <- 0.3
+    # cause errors due to mismatches between variables
+    expect_error( check_herit_labs( herit, labs, -0.1, n_ind ) )
+    expect_error( check_herit_labs( herit, labs, 0.8, n_ind ) )
+    expect_error( check_herit_labs( herit, labs, labs_sigma_sq, n_ind + 1L ) )
+    expect_error( check_herit_labs( herit, labs, c( labs_sigma_sq, 0.2 ), n_ind ) )
+
+    # a successful run
+    expect_silent(
+        obj <- check_herit_labs( herit, labs, labs_sigma_sq, n_ind )
+    )
+    expect_true( is.list( obj ) )
+    expect_equal( names( obj ), c( 'labs', 'sigma_sq_residual' ) )
+    expect_equal( obj$labs, cbind( labs ) ) # non-NULL case
+    expect_equal( obj$sigma_sq_residual, 1 - herit - sum( labs_sigma_sq ) ) # ditto
+
+    # run with two layers of labs
+    # here labs are not hierarchical but should work anyway
+    labs <- cbind( labs, c( rep.int( 'x', 3L ), rep.int( 'y', 3L ), rep.int( 'z', 4L ) ) )
+    labs_sigma_sq <- c( 0.3, 0.2 )
+    expect_silent(
+        obj <- check_herit_labs( herit, labs, labs_sigma_sq, n_ind )
+    )
+    expect_true( is.list( obj ) )
+    expect_equal( names( obj ), c( 'labs', 'sigma_sq_residual' ) )
+    expect_equal( obj$labs, cbind( labs ) ) # non-NULL case
+    expect_equal( obj$sigma_sq_residual, 1 - herit - sum( labs_sigma_sq ) ) # ditto
+})
+
 test_that("cov_trait works", {
     # when kinship is trivial no-structure, V is identity (any herit)
     n <- 100 # for experiments
@@ -678,6 +733,9 @@ test_that( "pval_srmsd, pval_type_1_err, pval_infl work", {
     pvals_null_cum <- ecdf( pvals[ -causal_indexes ] )
     type_1_err_ecdf <- pvals_null_cum( alpha )
     expect_equal( type_1_err, type_1_err_ecdf )
+    # if p-values are NULL, return should be a vector of NAs
+    expect_silent( type_1_err <- pval_type_1_err( NULL, causal_indexes, alpha = alpha ) )
+    expect_equal( type_1_err, rep.int( NA, length( alpha ) ) )
     
     ### pval_infl
     
@@ -700,6 +758,8 @@ test_that( "pval_srmsd, pval_type_1_err, pval_infl work", {
     expect_true( pval_infl( 0.4 ) > 1 )
     # deflation
     expect_true( pval_infl( 0.6 ) < 1 )
+    # NULL input
+    expect_true( is.na( pval_infl( NULL ) ) )
 })
 
 test_that( "pval_aucpr, pval_power_calib work", {
@@ -774,4 +834,7 @@ test_that( "pval_aucpr, pval_power_calib work", {
     expect_true( !anyNA(power) )
     expect_true( all( power >= 0 ) )
     expect_true( all( power <= 1 ) )
+    # if p-values are NULL, return should be a vector of NAs
+    expect_silent( power <- pval_power_calib( NULL, causal_indexes, alpha = alpha ) )
+    expect_equal( power, rep.int( NA, length( alpha ) ) )
 })
